@@ -12,7 +12,7 @@ def rate_limit_guard(response):
         print("Near 15 min limit, sleeping for 60s ...")
         time.spleep(60)
     if used_daily >= limit_daily - 5:
-        print("Near daily limit, stopping code execution")
+        print("Near daily limit, stopping code execution!")
         return False 
     return True
 
@@ -89,7 +89,10 @@ if __name__ == "__main__":
     activities_data, _ = get_activities(page=request_page)
     print(len(activities_data))
 
-    update_activity(activities_data[2]["id"],description="Test update description")
+    with open(f"data/activities/{activities_data[0]["id"]}.json","w") as f:
+        json.dump(activities_data[0],f) 
+    
+    #update_activity(activities_data[2]["id"],description="Test update description")
     
     #download_full_activity(activities_data[0]["id"], f"data/{activities_data[0]["id"]}_full.json")
     #download_activity_laps(activities_data[0]["id"], f"data/{activities_data[0]["id"]}_laps.json")
