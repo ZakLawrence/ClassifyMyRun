@@ -1,4 +1,4 @@
-from auth import get_session
+from api_tools.auth import get_session
 import requests
 import json
 import time
@@ -8,10 +8,10 @@ BASE_URL = "https://www.strava.com/api/v3"
 def rate_limit_guard(response):
     used_15_min, used_daily = response.headers["x-ratelimit-usage"].split(",")
     limit_15_min, limit_daily = response.headers["x-ratelimit-limit"].split(",")
-    if used_15_min >= limit_15_min - 5: 
+    if int(used_15_min) >= int(limit_15_min) - 5: 
         print("Near 15 min limit, sleeping for 60s ...")
         time.spleep(60)
-    if used_daily >= limit_daily - 5:
+    if int(used_daily) >= int(limit_daily) - 5:
         print("Near daily limit, stopping code execution!")
         return False 
     return True
@@ -41,7 +41,7 @@ def download_activity_laps(activity_id, out_path):
         json.dump(response.json(),f)
     return response
 
-def download_activity_streams(activity_id:int,types,out_path,resolution=None):
+def download_activity_streams(activity_id:int,types,out_path=None,resolution=None):
     extra_params : dict[str,any] = {}
     if resolution is not None:
         extra_params["resolution"] = resolution
@@ -49,8 +49,9 @@ def download_activity_streams(activity_id:int,types,out_path,resolution=None):
     url = f"{BASE_URL}/activities/{activity_id}/streams"
     response = session.get(url, params={"keys":",".join(types),"key_by_key":True,**extra_params})
     response.raise_for_status()
-    with open(out_path,"w") as f:
-        json.dump(response.json(),f)
+    if out_path:
+        with open(out_path,"w") as f:
+            json.dump(response.json(),f)
     return response
 
 def update_activity(activity_id: int, **kwargs):

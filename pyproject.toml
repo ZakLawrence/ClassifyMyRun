@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ClassifyMyRun"
+version = "0.1.0"
+description = "Run classification using Luigi tasks and ML"
+authors = [
+    { name="Your Name", email="you@example.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "luigi>=3.3",
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "torch",
+    "scikit-learn"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -5,7 +5,7 @@ from pathlib import Path
 import os 
 import json
 
-parent_folder = Path(__file__).resolve().parent.parent
+parent_folder = Path(__file__).resolve().parent.parent.parent
 env_path =  parent_folder / ".env"
 load_dotenv(dotenv_path=env_path)
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
