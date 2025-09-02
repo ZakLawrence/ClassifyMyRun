@@ -1,5 +1,8 @@
 import sqlite3
 import pathlib
+import json
+import requests
+import datetime
 from contextlib import contextmanager
 
 
@@ -12,7 +15,7 @@ def get_con(db_path:str="data/activities/strava.db"):
         con.commit()
         con.close()
 
-def query_db(query:str, params:tuple = (), db_path:str="data/activities/strava.db", as_dict:bool = True):
+def query_db(query:str, params:tuple = (), db_path:str="data/activities/strava.db", as_dict:bool = True) -> dict | None:
     if not pathlib.Path(db_path).is_file():
         return None 
     try:
@@ -31,49 +34,12 @@ def query_db(query:str, params:tuple = (), db_path:str="data/activities/strava.d
         else:
             raise
 
-def init_db(db_path:str="data/activities/strava.db"):
+def init_db(db_path:str="data/activities/strava.db",table:str="") -> None:
     with get_con(db_path) as conn:
         c = conn.cursor()
-        c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS activities (
-            id INTIGER PRIMARY KEY,
-            name TEXT,
-            start_date TEXT,
-            moving_time REAL,
-            elapsed_time REAL,
-            distance REAL,
-            total_elevation_gain REAL,
-            average_speed REAL,
-            max_speed REAL,
-            average_cadence REAL,
-            average_watts REAL,
-            max_watts REAL,
-            average_heartrate REAL,
-            max_heartrate REAL,
-            elev_high REAL,
-            elev_low REAL,
-            type TEXT,
-            has_stream INTIGER DEFAULT 0
-        )
-        """
-        )
-        c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS streams (
-            activity_id INTIGER PRIMARY KEY,
-            distance REAL,
-            altitude REAL,
-            velocity REAL,
-            heartrate REAL,
-            cadence REAL,
-            grade REAL,
-            FOREIGN KEY(activity_id) REFERENCES activities(id)
-        )
-        """
-        )
+        c.execute(table)
 
-def insert_activities(activities,db_path:str="data/activities/strava.db"):
+def insert_activities(activities,db_path:str="data/activities/strava.db") -> None:
     if not pathlib.Path(db_path).is_file():
         return None 
     with get_con(db_path) as conn:
@@ -105,3 +71,68 @@ def insert_activities(activities,db_path:str="data/activities/strava.db"):
                 act.get("elev_low"),
                 act.get("type"),
             ))
+
+def insert_stream(activity_id:int, activity_stream:dict, db_path:str="data/activities/strava.db") -> None:
+    """
+    Insert streams for a give activity into the database.
+    
+    """
+    if not pathlib.Path(db_path).is_file():
+        raise FileNotFoundError(f"No database found at {db_path}")
+
+    with get_con(db_path) as conn:
+        c = conn.cursor()
+
+        for stream_type, stream_obj in activity_stream.items():
+            data = stream_obj.get("data",[])
+            if not data:
+                continue
+
+            c.execute(
+                """
+                INSERT OR IGNORE INTO streams (activity_id, stream_type, data)
+                VALUES (?, ?, ?)
+                """,
+                (activity_id,stream_type,json.dumps(data))
+            )
+            c.execute("UPDATE activities SET has_stream = 1 WHERE id = ?",(activity_id,))  
+
+def log_requests(request:requests.models.Response,db_path:str="logs/requests.db") -> None:
+    if not pathlib.Path(db_path).is_file():
+        raise FileNotFoundError(f"No database found at {db_path}")
+    
+    with get_con(db_path) as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO requests (timestamp,headers) VALUES (?, ?)",
+            (datetime.datetime.now().isoformat(), json.dumps(dict(request.headers)))
+        )
+
+def get_requests_today(db_path:str) -> list[dict]:
+    today = datetime.date.today().isoformat()
+    with get_con(db_path) as conn:
+        c = conn.cursor()
+        c.execute(
+            "SELECT timestamp, headers FROM requests WHERE DATE(timestamp) = ?",
+            (today,)
+        )
+        rows = c.fetchall()
+        return [{"timestamp":ts, "headers":json.loads(h)} for ts,h in rows]
+    
+def job_ran_today(job_name: str, db_path: str) -> bool:
+    today = datetime.date.today().isoformat()
+    with get_con(db_path) as conn:
+        c = conn.cursor()
+        c.execute("SELECT last_run FROM jobs WHERE name = ?", (job_name,))
+        row = c.fetchone()
+        return row is not None and row[0].startswith(today)
+
+def mark_job_ran(job_name: str, db_path: str) -> None:
+    today = datetime.datetime.now().isoformat()
+    with get_con(db_path) as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO jobs (name, last_run) VALUES (?, ?) "
+            "ON CONFLICT(name) DO UPDATE SET last_run = excluded.last_run",
+            (job_name, today)
+        )
