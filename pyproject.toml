@@ -5,14 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ClassifyMyRun"
 version = "0.1.0"
-description = "Run classification using Luigi tasks and ML"
+description = "Run classification"
 authors = [
-    { name="Your Name", email="you@example.com" }
+    { name="Zak Lawrence", email="zlawrence97@outlook.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "luigi>=3.3",
     "pandas",
     "numpy",
     "matplotlib",
